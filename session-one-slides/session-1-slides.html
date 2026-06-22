@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Session 1 — Make the Page React</title>
+
+    <!-- === FONTS: Tektur (display), Chakra Petch (body), Space Mono (HUD) === -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Tektur:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES — 8-BIT ORBIT THEME
+           =========================================== */
+        :root {
+            /* Stage background */
+            --stage-bg: #0A0E27;
+            --slide-bg: #0A0E27;
+
+            /* 8-Bit Orbit Palette */
+            --dark-void: #0A0E27;
+            --deep-navy: #0F1B3D;
+            --neon-cyan: #5EDCF4;
+            --neon-pink: #F0A6CA;
+            --neon-yellow: #F4D03F;
+            --soft-lavender: #E2D5F2;
+            --white: #FFFFFF;
+
+            /* Typography */
+            --font-display: 'Tektur', cursive;
+            --font-body: 'Chakra Petch', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+
+            /* Fixed stage sizes (1920x1080) */
+            --title-size: 96px;
+            --headline-size: 64px;
+            --subhead-size: 36px;
+            --body-size: 28px;
+            --code-size: 32px;
+            --label-size: 16px;
+
+            /* Spacing */
+            --slide-padding: 80px;
+            --content-gap: 40px;
+
+            /* Animation */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.6s;
+        }
+
+        /* ===========================================
+           BASE RESET
+           =========================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ===========================================
+           VIEWPORT BASE (MANDATORY - from viewport-base.css)
+           Fixed 16:9 stage at 1920x1080
+           =========================================== */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+            cursor: crosshair;
+        }
+
+        .deck-viewport {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: var(--stage-bg);
+        }
+
+        .deck-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: 0 0;
+            background: var(--slide-bg);
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: var(--slide-bg);
+        }
+
+        .slide.active,
+        .slide.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        img, video, canvas, svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        @media print {
+            html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+            .deck-viewport { position: static; overflow: visible; background: #fff; }
+            .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+            .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important;
+                     pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+            .slide:last-child { break-after: auto; page-break-after: auto; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+        }
+
+        /* ===========================================
+           8-BIT ORBIT ATMOSPHERIC LAYERS
+           =========================================== */
+
+        /* 40px cyan grid on dark surfaces */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(94, 220, 244, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(94, 220, 244, 0.07) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        /* Scanlines overlay */
+        .scanlines {
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                transparent 2px,
+                rgba(10, 14, 39, 0.04) 2px,
+                rgba(10, 14, 39, 0.04) 4px
+            );
+            mix-blend-mode: multiply;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Grain overlay */
+        .grain {
+            position: absolute;
+            inset: 0;
+            opacity: 0.035;
+            pointer-events: none;
+            z-index: 49;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        /* CRT vignette glow */
+        .crt-glow {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(10, 14, 39, 0.25) 100%);
+            pointer-events: none;
+            z-index: 51;
+        }
+
+        /* ===========================================
+           TYPOGRAPHY
+           =========================================== */
+
+        /* Tektur display headlines */
+        .headline {
+            font-family: var(--font-display);
+            font-size: var(--headline-size);
+            font-weight: 700;
+            color: var(--neon-cyan);
+            line-height: 1.15;
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        .headline-hero {
+            font-family: var(--font-display);
+            font-size: var(--title-size);
+            font-weight: 900;
+            color: var(--white);
+            line-height: 1.05;
+            letter-spacing: 0.04em;
+            text-shadow:
+                4px 4px 0 var(--neon-yellow),
+                8px 8px 0 var(--deep-navy);
+        }
+
+        .headline-sub {
+            font-family: var(--font-display);
+            font-size: 56px;
+            font-weight: 700;
+            color: var(--neon-yellow);
+            text-shadow: 4px 4px 0 var(--deep-navy);
+        }
+
+        .subhead {
+            font-family: var(--font-display);
+            font-size: var(--subhead-size);
+            font-weight: 700;
+            color: var(--neon-cyan);
+            line-height: 1.15;
+        }
+
+        /* Chakra Petch body text */
+        .body-text {
+            font-family: var(--font-body);
+            font-size: var(--body-size);
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.7;
+        }
+
+        .body-text strong {
+            color: var(--neon-cyan);
+            font-weight: 600;
+        }
+
+        /* Space Mono labels/HUD */
+        .label-pill {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: var(--label-size);
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            background: var(--deep-navy);
+            color: var(--neon-yellow);
+            padding: 8px 20px;
+            box-shadow: 4px 4px 0 rgba(15, 27, 61, 0.5);
+        }
+
+        .label-pill.cyan { color: var(--neon-cyan); }
+        .label-pill.pink { color: var(--neon-pink); }
+
+        /* ===========================================
+           CODE BLOCKS
+           =========================================== */
+        .code-block {
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+            background: var(--deep-navy);
+            padding: 32px 40px;
+            border-left: 4px solid var(--neon-cyan);
+            color: var(--white);
+            line-height: 1.6;
+            box-shadow: 8px 8px 0 rgba(15, 27, 61, 0.3);
+        }
+
+        .code-block .keyword { color: var(--neon-pink); }
+        .code-block .string { color: var(--neon-yellow); }
+        .code-block .function { color: var(--neon-cyan); }
+        .code-block .comment { color: rgba(255, 255, 255, 0.4); }
+        .code-block .number { color: var(--neon-yellow); }
+
+        .code-inline {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            background: var(--deep-navy);
+            color: var(--neon-cyan);
+            padding: 4px 16px;
+        }
+
+        /* ===========================================
+           COMPONENTS
+           =========================================== */
+
+        /* Corner brackets */
+        .corner-bracket {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border: 4px solid var(--neon-cyan);
+        }
+        .corner-bracket.top-left { top: 48px; left: 48px; border-right: none; border-bottom: none; }
+        .corner-bracket.top-right { top: 48px; right: 48px; border-left: none; border-bottom: none; }
+        .corner-bracket.bottom-left { bottom: 48px; left: 48px; border-right: none; border-top: none; }
+        .corner-bracket.bottom-right { bottom: 48px; right: 48px; border-left: none; border-top: none; }
+
+        /* Pixel button */
+        .pixel-button {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: var(--neon-cyan);
+            color: var(--deep-navy);
+            padding: 20px 48px;
+            border: none;
+            cursor: pointer;
+            box-shadow:
+                4px 0 0 0 var(--deep-navy),
+                0 4px 0 0 var(--deep-navy),
+                4px 4px 0 0 var(--deep-navy),
+                8px 4px 0 0 var(--neon-yellow),
+                4px 8px 0 0 var(--neon-yellow),
+                8px 8px 0 0 var(--neon-yellow);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .pixel-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow:
+                2px 0 0 0 var(--deep-navy),
+                0 2px 0 0 var(--deep-navy),
+                2px 2px 0 0 var(--deep-navy),
+                4px 2px 0 0 var(--neon-yellow),
+                2px 4px 0 0 var(--neon-yellow),
+                4px 4px 0 0 var(--neon-yellow);
+        }
+
+        .pixel-button.pink {
+            background: var(--neon-pink);
+            box-shadow:
+                4px 0 0 0 var(--deep-navy),
+                0 4px 0 0 var(--deep-navy),
+                4px 4px 0 0 var(--deep-navy),
+                8px 4px 0 0 var(--neon-cyan),
+                4px 8px 0 0 var(--neon-cyan),
+                8px 8px 0 0 var(--neon-cyan);
+        }
+
+        /* Info cards */
+        .info-card {
+            background: rgba(94, 220, 244, 0.08);
+            border: 2px solid rgba(94, 220, 244, 0.2);
+            padding: 40px;
+            position: relative;
+        }
+
+        .info-card::before,
+        .info-card::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 4px solid var(--neon-cyan);
+        }
+
+        .info-card::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .info-card::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* Stat number */
+        .stat-number {
+            font-family: var(--font-display);
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--neon-cyan);
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        /* Three languages layout */
+        .lang-grid {
+            display: flex;
+            gap: 40px;
+        }
+
+        .lang-item {
+            flex: 1;
+            background: rgba(94, 220, 244, 0.06);
+            border: 2px solid rgba(94, 220, 244, 0.15);
+            padding: 32px;
+            text-align: center;
+            position: relative;
+        }
+
+        .lang-item::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--neon-cyan);
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .lang-item::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--neon-cyan);
+            border-left: none;
+            border-top: none;
+        }
+
+        .lang-item.html::before, .lang-item.html::after { border-color: var(--neon-yellow); }
+        .lang-item.css::before, .lang-item.css::after { border-color: var(--neon-pink); }
+        .lang-item.js::before, .lang-item.js::after { border-color: var(--neon-cyan); }
+
+        .lang-name {
+            font-family: var(--font-display);
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .lang-item.html .lang-name { color: var(--neon-yellow); }
+        .lang-item.css .lang-name { color: var(--neon-pink); }
+        .lang-item.js .lang-name { color: var(--neon-cyan); }
+
+        .lang-desc {
+            font-family: var(--font-body);
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Arrow indicator */
+        .arrow-right {
+            font-family: var(--font-display);
+            font-size: 48px;
+            color: var(--neon-yellow);
+        }
+
+        /* Comparison layout */
+        .comparison {
+            display: flex;
+            align-items: center;
+            gap: 48px;
+        }
+
+        .comparison-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .comparison-arrow {
+            font-family: var(--font-display);
+            font-size: 72px;
+            color: var(--neon-yellow);
+        }
+
+        /* ===========================================
+           SLIDE LAYOUTS
+           =========================================== */
+
+        .slide-content {
+            position: absolute;
+            inset: 0;
+            padding: var(--slide-padding);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .slide-content.centered {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .slide-content.top-left {
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+
+        /* Two-column layout */
+        .two-column {
+            display: flex;
+            gap: 80px;
+            flex: 1;
+            align-items: center;
+        }
+
+        .column {
+            flex: 1;
+        }
+
+        /* Starfield */
+        .starfield {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+
+        .star.cyan { background: var(--neon-cyan); }
+        .star.pink { background: var(--neon-pink); }
+        .star.yellow { background: var(--neon-yellow); }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Floating pixels */
+        .pixel-float {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+        .reveal-delay-5 { transition-delay: 0.5s; }
+
+        /* ===========================================
+           SLIDE COUNTER & NAV
+           =========================================== */
+        .slide-counter {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            letter-spacing: 0.15em;
+            color: var(--neon-cyan);
+            background: rgba(15, 27, 61, 0.8);
+            padding: 8px 20px;
+            z-index: 1000;
+        }
+
+        .nav-hint {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(94, 220, 244, 0.4);
+            z-index: 1000;
+        }
+
+        /* ===========================================
+           EDITOR TOGGLE
+           =========================================== */
+        .edit-hotzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 80px;
+            height: 80px;
+            z-index: 10000;
+            cursor: pointer;
+        }
+
+        .edit-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            width: 48px;
+            height: 48px;
+            background: var(--deep-navy);
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-toggle.show,
+        .edit-toggle.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .edit-toggle.active {
+            background: var(--neon-cyan);
+            color: var(--deep-navy);
+        }
+
+        [contenteditable="true"] {
+            outline: 2px dashed var(--neon-yellow);
+            outline-offset: 4px;
+        }
+
+        /* ===========================================
+           CHECKLIST STYLE
+           =========================================== */
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist li {
+            font-family: var(--font-body);
+            font-size: 32px;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 24px;
+            padding-left: 48px;
+            position: relative;
+        }
+
+        .checklist li::before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: var(--neon-cyan);
+            font-family: var(--font-display);
+            font-weight: 700;
+        }
+
+        /* ===========================================
+           SPECIAL SLIDES
+           =========================================== */
+
+        /* Title slide pink card */
+        .title-card {
+            background: var(--neon-pink);
+            padding: 48px 64px;
+            box-shadow: 8px 8px 0 var(--deep-navy);
+            text-align: center;
+        }
+
+        .title-card .session-label {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--deep-navy);
+            opacity: 0.7;
+            margin-bottom: 16px;
+        }
+
+        .title-card .title {
+            font-family: var(--font-display);
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--deep-navy);
+            margin-bottom: 8px;
+        }
+
+        .title-card .subtitle {
+            font-family: var(--font-body);
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--deep-navy);
+        }
+
+        /* Editor slide */
+        .editor-prompt {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            flex: 1;
+        }
+
+        .editor-icon {
+            font-size: 120px;
+        }
+
+        .editor-text {
+            text-align: left;
+        }
+
+        .editor-label {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--neon-pink);
+            margin-bottom: 16px;
+        }
+
+        .editor-action {
+            font-family: var(--font-display);
+            font-size: 56px;
+            font-weight: 700;
+            color: var(--white);
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        /* Gotcha reveal */
+        .gotcha-reveal {
+            font-family: var(--font-display);
+            font-size: 120px;
+            font-weight: 900;
+            color: var(--neon-yellow);
+            text-shadow:
+                4px 4px 0 var(--neon-pink),
+                8px 8px 0 var(--deep-navy);
+        }
+
+        /* Recap grid */
+        .recap-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+        }
+
+        .recap-item {
+            background: rgba(94, 220, 244, 0.06);
+            border: 2px solid rgba(94, 220, 244, 0.15);
+            padding: 32px;
+            position: relative;
+        }
+
+        .recap-item::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            width: 16px;
+            height: 16px;
+            border: 3px solid var(--neon-cyan);
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .recap-text {
+            font-family: var(--font-body);
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+    </style>
+</head>
+<body>
+    <div class="deck-viewport">
+        <main class="deck-stage" id="deckStage">
+
+            <!-- =========================================
+                 SLIDE 1: Title
+                 ========================================= -->
+            <section class="slide active" data-slide="1">
+                <div class="grid-bg"></div>
+                <div class="starfield" id="starfield1"></div>
+                <div class="corner-bracket top-left"></div>
+                <div class="corner-bracket top-right"></div>
+                <div class="corner-bracket bottom-left"></div>
+                <div class="corner-bracket bottom-right"></div>
+
+                <div class="slide-content centered">
+                    <div class="label-pill reveal">Session 01</div>
+                    <h1 class="headline-hero reveal reveal-delay-1" style="margin: 32px 0 24px;">JavaScript</h1>
+                    <h2 class="headline-sub reveal reveal-delay-2">Make the Page React</h2>
+                    <div style="margin-top: 48px;" class="reveal reveal-delay-3">
+                        <span class="label-pill cyan">Building: Mad Libs Generator</span>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 2: What we're building
+                 ========================================= -->
+            <section class="slide" data-slide="2">
+                <div class="grid-bg"></div>
+                <div class="starfield" id="starfield2"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Today's Project</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Mad Libs Generator</h2>
+
+                    <div class="info-card reveal reveal-delay-2" style="max-width: 900px;">
+                        <p class="body-text" style="font-size: 32px; margin-bottom: 24px;">
+                            Type in words <span class="arrow-right">→</span> Hit a button <span class="arrow-right">→</span> Get a silly story
+                        </p>
+                        <p class="body-text" style="opacity: 0.6;">
+                            Everything we learn today is a piece of making this work.<br>
+                            Keep this in your head as the goal.
+                        </p>
+                    </div>
+
+                    <div class="pixel-button pink reveal reveal-delay-3" style="margin-top: 48px;">
+                        Live Demo
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 3: The three languages
+                 ========================================= -->
+            <section class="slide" data-slide="3">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Web Foundations</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 64px;">The Three Languages</h2>
+
+                    <div class="lang-grid reveal reveal-delay-2">
+                        <div class="lang-item html">
+                            <div class="lang-name">HTML</div>
+                            <div class="lang-desc">Structure<br><em>the skeleton</em></div>
+                        </div>
+                        <div class="lang-item css">
+                            <div class="lang-name">CSS</div>
+                            <div class="lang-desc">Style<br><em>the looks</em></div>
+                        </div>
+                        <div class="lang-item js">
+                            <div class="lang-name">JS</div>
+                            <div class="lang-desc">Behavior<br><em>the actions</em></div>
+                        </div>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 64px; text-align: center; max-width: 800px; margin-left: auto; margin-right: auto;">
+                        When a page reacts to a click, counts something, or changes after you type — <strong>that's JavaScript</strong>.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 4: Where JavaScript lives
+                 ========================================= -->
+            <section class="slide" data-slide="4">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Getting Started</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Where JavaScript Lives</h2>
+
+                    <div class="two-column">
+                        <div class="column reveal reveal-delay-2">
+                            <div class="code-block">
+                                <span class="comment">&lt;!-- In your HTML file --&gt;</span><br><br>
+                                <span class="keyword">&lt;script&gt;</span><br>
+                                &nbsp;&nbsp;<span class="comment">// Your code here</span><br>
+                                <span class="keyword">&lt;/script&gt;</span>
+                            </div>
+                        </div>
+                        <div class="column reveal reveal-delay-3">
+                            <p class="body-text" style="margin-bottom: 32px;">
+                                <strong>JS runs in the browser</strong>
+                            </p>
+                            <p class="body-text" style="margin-bottom: 32px;">
+                                Your JavaScript lives in a <code class="code-inline">&lt;script&gt;</code> tag, same way CSS lived in a style tag.
+                            </p>
+                            <p class="body-text">
+                                The browser reads it top to bottom. We'll watch it run using <strong>DevTools</strong>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 5: Variables: let
+                 ========================================= -->
+            <section class="slide" data-slide="5">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Core Concept</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 24px;">Variables: <code class="code-inline">let</code></h2>
+                    <p class="body-text reveal reveal-delay-2" style="margin-bottom: 48px; font-size: 32px;">
+                        A variable is a <strong>labeled box</strong> for a value.
+                    </p>
+
+                    <div class="code-block reveal reveal-delay-3" style="max-width: 700px;">
+                        <span class="keyword">let</span> score = <span class="number">5</span>;<br>
+                        <span class="keyword">let</span> playerName = <span class="string">"Sam"</span>;
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 48px;">
+                        Read it right to left: take the value, put it in a box, label the box.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 6: console.log
+                 ========================================= -->
+            <section class="slide" data-slide="6">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Debugging</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 24px;"><code class="code-inline">console.log()</code></h2>
+                    <p class="body-text reveal reveal-delay-2" style="margin-bottom: 48px; font-size: 32px;">
+                        Your window into the code — <strong>see what's happening</strong>.
+                    </p>
+
+                    <div class="code-block reveal reveal-delay-3" style="max-width: 600px;">
+                        <span class="function">console.log</span>(score);<br>
+                        <span class="comment">// → shows in DevTools console</span>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-4" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text">
+                            Whenever something isn't working, your first move is: <strong>log it and look</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 7: TO THE EDITOR - Block 1
+                 ========================================= -->
+            <section class="slide" data-slide="7">
+                <div class="grid-bg" style="background-image:
+                    linear-gradient(rgba(240, 166, 202, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240, 166, 202, 0.1) 1px, transparent 1px);"></div>
+
+                <div class="slide-content centered">
+                    <div class="editor-prompt reveal">
+                        <div class="editor-icon">⌨️</div>
+                        <div class="editor-text">
+                            <div class="editor-label">Your turn (with me)</div>
+                            <div class="editor-action">Variables & Logging</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-1" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="text-align: center;">
+                            Declare a variable. Log it. Open the console to prove it ran.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 8: The DOM
+                 ========================================= -->
+            <section class="slide" data-slide="8">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Core Concept</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 24px;">The DOM</h2>
+                    <p class="body-text reveal reveal-delay-2" style="margin-bottom: 48px; font-size: 32px;">
+                        Your HTML, as <strong>objects JS can grab and change</strong>.
+                    </p>
+
+                    <div class="two-column reveal reveal-delay-3">
+                        <div class="column">
+                            <div class="info-card">
+                                <p class="subhead" style="color: var(--neon-yellow); margin-bottom: 16px;">Your Page</p>
+                                <p class="body-text">Buttons, inputs, divs, paragraphs...</p>
+                            </div>
+                        </div>
+                        <div class="column" style="display: flex; align-items: center; justify-content: center;">
+                            <span class="comparison-arrow">→</span>
+                        </div>
+                        <div class="column">
+                            <div class="info-card">
+                                <p class="subhead" style="color: var(--neon-cyan); margin-bottom: 16px;">JavaScript</p>
+                                <p class="body-text">Can reach in and change them</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 48px;">
+                        We just need a way to <strong>point at the one we want</strong>.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 9: querySelector
+                 ========================================= -->
+            <section class="slide" data-slide="9">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Grab Elements</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;"><code class="code-inline">querySelector()</code></h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 900px;">
+                        document.<span class="function">querySelector</span>(<span class="string">"#myButton"</span>)
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-3" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="font-size: 30px;">
+                            Uses the <strong>same selectors as CSS</strong>
+                        </p>
+                        <p class="body-text" style="margin-top: 16px;">
+                            <code class="code-inline">#id</code> for an id &nbsp;&nbsp;•&nbsp;&nbsp; <code class="code-inline">.class</code> for a class
+                        </p>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 32px;">
+                        Store the grabbed element in a variable so you can use it more than once.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 10: addEventListener
+                 ========================================= -->
+            <section class="slide" data-slide="10">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Events</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;"><code class="code-inline">addEventListener</code></h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 1000px;">
+                        button.<span class="function">addEventListener</span>(<span class="string">"click"</span>, () => {<br>
+                        &nbsp;&nbsp;<span class="comment">// code that runs</span><br>
+                        });
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        Read it out loud: <strong>"When the button gets a click, run the code in the braces."</strong>
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 11: TO THE EDITOR - Block 2
+                 ========================================= -->
+            <section class="slide" data-slide="11">
+                <div class="grid-bg" style="background-image:
+                    linear-gradient(rgba(240, 166, 202, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240, 166, 202, 0.1) 1px, transparent 1px);"></div>
+
+                <div class="slide-content centered">
+                    <div class="editor-prompt reveal">
+                        <div class="editor-icon">⌨️</div>
+                        <div class="editor-text">
+                            <div class="editor-label">Your turn (with me)</div>
+                            <div class="editor-action">Make a Button Do Something</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-1" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="text-align: center;">
+                            Click a button → log a message to the console
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 12: .value
+                 ========================================= -->
+            <section class="slide" data-slide="12">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Reading Input</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;"><code class="code-inline">.value</code></h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 700px;">
+                        <span class="keyword">let</span> typed = input.<span class="function">value</span>;
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        <code class="code-inline">.value</code> = the current contents of an input
+                    </p>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 24px;">
+                        Reaches into an input box and hands you whatever's typed there, <strong>as text</strong>.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 13: .innerHTML
+                 ========================================= -->
+            <section class="slide" data-slide="13">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Writing Output</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;"><code class="code-inline">.innerHTML</code></h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 800px;">
+                        output.<span class="function">innerHTML</span> = <span class="string">"Hello!"</span>;
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        <code class="code-inline">.innerHTML</code> = the content inside an element
+                    </p>
+
+                    <div class="info-card reveal reveal-delay-4" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text">
+                            <code class="code-inline">.value</code> reads <strong>from</strong> an input.<br>
+                            <code class="code-inline">.innerHTML</code> writes <strong>into</strong> an element on the page.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 14: TO THE EDITOR - Block 3
+                 ========================================= -->
+            <section class="slide" data-slide="14">
+                <div class="grid-bg" style="background-image:
+                    linear-gradient(rgba(240, 166, 202, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240, 166, 202, 0.1) 1px, transparent 1px);"></div>
+
+                <div class="slide-content centered">
+                    <div class="editor-prompt reveal">
+                        <div class="editor-icon">⌨️</div>
+                        <div class="editor-text">
+                            <div class="editor-label">Your turn (with me)</div>
+                            <div class="editor-action">Read & Display</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-1" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="text-align: center;">
+                            Read an input → show it on the page
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 15: Strings
+                 ========================================= -->
+            <section class="slide" data-slide="15">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Data Types</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Strings: Text in Quotes</h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 500px;">
+                        <span class="string">"hello"</span><br>
+                        <span class="string">'world'</span>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        Text values are called <strong>strings</strong>.
+                    </p>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 24px;">
+                        Single or double quotes — your choice, just be consistent.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 16: Concatenation +
+                 ========================================= -->
+            <section class="slide" data-slide="16">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Combining Text</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Glue Strings: <code class="code-inline">+</code></h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 700px;">
+                        <span class="string">"Hello, "</span> + name + <span class="string">"!"</span>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px;">
+                        The <code class="code-inline">+</code> joins strings end to end.
+                    </p>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 24px;">
+                        Watch the spaces — you have to put them inside the quotes yourself.
+                    </p>
+
+                    <p class="body-text reveal reveal-delay-5" style="margin-top: 24px; color: var(--neon-yellow);">
+                        This works, but it gets fiddly fast. There's a cleaner way...
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 17: Template literals
+                 ========================================= -->
+            <section class="slide" data-slide="17">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal" style="background: var(--neon-cyan); color: var(--deep-navy);">Upgrade</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Template Literals</h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 700px;">
+                        <span class="string">`Hello, ${</span>name<span class="string">}!`</span>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        <strong>Backticks</strong> + <code class="code-inline">${ }</code> to drop variables in
+                    </p>
+
+                    <div class="info-card reveal reveal-delay-4" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text">
+                            Same sentence as the last slide, <strong>way easier to read</strong>.<br>
+                            From here on, we use these.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 18: TO THE EDITOR - Block 4
+                 ========================================= -->
+            <section class="slide" data-slide="18">
+                <div class="grid-bg" style="background-image:
+                    linear-gradient(rgba(240, 166, 202, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240, 166, 202, 0.1) 1px, transparent 1px);"></div>
+
+                <div class="slide-content centered">
+                    <div class="editor-prompt reveal">
+                        <div class="editor-icon">⌨️</div>
+                        <div class="editor-text">
+                            <div class="editor-label">Your turn (with me)</div>
+                            <div class="editor-action">Build a Sentence</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-1" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="text-align: center;">
+                            Combine inputs into one sentence using template literals
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 19: Strings vs numbers
+                 ========================================= -->
+            <section class="slide" data-slide="19">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill pink reveal">Watch Out</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Strings vs. Numbers</h2>
+
+                    <div class="comparison reveal reveal-delay-2">
+                        <div class="comparison-item">
+                            <div class="code-block" style="text-align: center;">
+                                <span class="string">"7"</span>
+                            </div>
+                            <p class="body-text" style="margin-top: 16px;">is <strong>text</strong></p>
+                        </div>
+                        <div style="font-size: 48px; color: var(--neon-yellow);">≠</div>
+                        <div class="comparison-item">
+                            <div class="code-block" style="text-align: center;">
+                                <span class="number">7</span>
+                            </div>
+                            <p class="body-text" style="margin-top: 16px;">is a <strong>number</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-3" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="font-size: 30px;">
+                            Inputs <strong>always</strong> give you text — even digits.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 20: The gotcha
+                 ========================================= -->
+            <section class="slide" data-slide="20">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content centered">
+                    <div class="label-pill pink reveal">The Gotcha</div>
+
+                    <div class="code-block reveal reveal-delay-1" style="margin: 48px 0; font-size: 48px;">
+                        <span class="string">"7"</span> + <span class="string">"7"</span> = ?
+                    </div>
+
+                    <div class="gotcha-reveal reveal reveal-delay-2">
+                        "77"
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; max-width: 800px;">
+                        Because they're strings, <code class="code-inline">+</code> <strong>glues</strong> them instead of adding.<br>
+                        The computer did exactly what we told it.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 21: Number() to the rescue
+                 ========================================= -->
+            <section class="slide" data-slide="21">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal" style="background: var(--neon-cyan); color: var(--deep-navy);">The Fix</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;"><code class="code-inline">Number()</code> to the Rescue</h2>
+
+                    <div class="code-block reveal reveal-delay-2" style="max-width: 900px;">
+                        <span class="function">Number</span>(<span class="string">"7"</span>) + <span class="function">Number</span>(<span class="string">"7"</span>)<br>
+                        <span class="comment">// → 14</span>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; font-size: 32px;">
+                        Convert text → number <strong>before</strong> doing math.
+                    </p>
+
+                    <div class="info-card reveal reveal-delay-4" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text">
+                            Rule of thumb: if you're doing math on something from an input,<br>
+                            wrap it in <code class="code-inline">Number()</code> first.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 22: TO THE EDITOR - Block 5
+                 ========================================= -->
+            <section class="slide" data-slide="22">
+                <div class="grid-bg" style="background-image:
+                    linear-gradient(rgba(240, 166, 202, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240, 166, 202, 0.1) 1px, transparent 1px);"></div>
+
+                <div class="slide-content centered">
+                    <div class="editor-prompt reveal">
+                        <div class="editor-icon">⌨️</div>
+                        <div class="editor-text">
+                            <div class="editor-label">Your turn (with me)</div>
+                            <div class="editor-action">The Adder Gotcha</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card reveal reveal-delay-1" style="max-width: 800px; margin-top: 48px;">
+                        <p class="body-text" style="text-align: center;">
+                            Add two number inputs — watch the bug — then fix it with <code class="code-inline">Number()</code>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 23: Project time
+                 ========================================= -->
+            <section class="slide" data-slide="23">
+                <div class="grid-bg"></div>
+                <div class="starfield" id="starfield23"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal" style="background: var(--neon-yellow); color: var(--deep-navy);">Build Time</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">Project: Mad Libs Generator</h2>
+
+                    <div class="two-column">
+                        <div class="column">
+                            <ul class="checklist reveal reveal-delay-2">
+                                <li>Read all the inputs</li>
+                                <li>Build the story with template literals</li>
+                                <li>Show it on the page</li>
+                            </ul>
+                        </div>
+                        <div class="column">
+                            <div class="info-card reveal reveal-delay-3">
+                                <p class="subhead" style="color: var(--neon-pink); margin-bottom: 16px;">Stretch Goals</p>
+                                <ul class="checklist" style="font-size: 26px;">
+                                    <li>Blank-input message</li>
+                                    <li>Clear button</li>
+                                    <li>Use the number input</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 48px; text-align: center; color: var(--neon-yellow);">
+                        Stuck? Log the value and look. Done early? Try a stretch goal.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 24: Recap
+                 ========================================= -->
+            <section class="slide" data-slide="24">
+                <div class="grid-bg"></div>
+
+                <div class="slide-content">
+                    <div class="label-pill reveal">Session Complete</div>
+                    <h2 class="headline reveal reveal-delay-1" style="margin: 32px 0 48px;">What You Can Now Do</h2>
+
+                    <div class="recap-grid reveal reveal-delay-2">
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>Grab elements</strong> with querySelector</p>
+                        </div>
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>React to clicks</strong> with addEventListener</p>
+                        </div>
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>Read inputs</strong> with .value</p>
+                        </div>
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>Write to the page</strong> with .innerHTML</p>
+                        </div>
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>Build text</strong> with template literals</p>
+                        </div>
+                        <div class="recap-item">
+                            <p class="recap-text"><strong>Convert types</strong> with Number()</p>
+                        </div>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-3" style="margin-top: 48px; text-align: center;">
+                        Two hours ago this was a static page. Now it reads input and writes output — <strong>that's the heart of every app</strong>.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+            <!-- =========================================
+                 SLIDE 25: Next session teaser
+                 ========================================= -->
+            <section class="slide" data-slide="25">
+                <div class="grid-bg"></div>
+                <div class="starfield" id="starfield25"></div>
+                <div class="corner-bracket top-left"></div>
+                <div class="corner-bracket top-right"></div>
+                <div class="corner-bracket bottom-left"></div>
+                <div class="corner-bracket bottom-right"></div>
+
+                <div class="slide-content centered">
+                    <div class="label-pill reveal">Coming Up</div>
+                    <h1 class="headline-hero reveal reveal-delay-1" style="margin: 32px 0 24px;">Session 2</h1>
+                    <h2 class="headline-sub reveal reveal-delay-2">Make the Page Think</h2>
+
+                    <div style="margin-top: 64px;" class="reveal reveal-delay-3">
+                        <span class="label-pill cyan">Building: Number Guessing Game</span>
+                    </div>
+
+                    <p class="body-text reveal reveal-delay-4" style="margin-top: 48px;">
+                        Same input/output skills, plus <strong>logic</strong>.<br>
+                        We'll build a game you'll actually want to beat.
+                    </p>
+                </div>
+
+                <div class="grain"></div>
+                <div class="scanlines"></div>
+                <div class="crt-glow"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Slide counter -->
+    <div class="slide-counter" id="slideCounter">01 / 25</div>
+    <div class="nav-hint">Use Keys ← →</div>
+
+    <!-- Edit toggle -->
+    <div class="edit-hotzone" id="editHotzone"></div>
+    <button class="edit-toggle" id="editToggle" title="Edit mode (E)">✏️</button>
+
+    <script>
+        /* ===========================================
+           SLIDE PRESENTATION CONTROLLER
+           =========================================== */
+        class SlidePresentation {
+            constructor() {
+                this.slides = document.querySelectorAll('.slide');
+                this.currentSlide = 0;
+                this.stage = document.getElementById('deckStage');
+                this.counter = document.getElementById('slideCounter');
+                this.totalSlides = this.slides.length;
+
+                this.setupStageScale();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupWheelNav();
+                this.generateStarfields();
+                this.showSlide(0);
+            }
+
+            setupStageScale() {
+                const scale = () => {
+                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    const x = (window.innerWidth - 1920 * factor) / 2;
+                    const y = (window.innerHeight - 1080 * factor) / 2;
+                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+                };
+                scale();
+                window.addEventListener('resize', scale);
+            }
+
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    // Skip if editing text
+                    if (e.target.getAttribute('contenteditable') === 'true') return;
+
+                    switch(e.key) {
+                        case 'ArrowRight':
+                        case 'ArrowDown':
+                        case ' ':
+                        case 'PageDown':
+                            e.preventDefault();
+                            this.nextSlide();
+                            break;
+                        case 'ArrowLeft':
+                        case 'ArrowUp':
+                        case 'PageUp':
+                            e.preventDefault();
+                            this.prevSlide();
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.showSlide(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.showSlide(this.totalSlides - 1);
+                            break;
+                    }
+                });
+            }
+
+            setupTouchNav() {
+                let startY = 0;
+                let startX = 0;
+
+                this.stage.addEventListener('touchstart', (e) => {
+                    startY = e.touches[0].clientY;
+                    startX = e.touches[0].clientX;
+                }, { passive: true });
+
+                this.stage.addEventListener('touchend', (e) => {
+                    const endY = e.changedTouches[0].clientY;
+                    const endX = e.changedTouches[0].clientX;
+                    const diffY = startY - endY;
+                    const diffX = startX - endX;
+
+                    // Use the larger movement direction
+                    if (Math.abs(diffX) > Math.abs(diffY)) {
+                        if (diffX > 50) this.nextSlide();
+                        else if (diffX < -50) this.prevSlide();
+                    } else {
+                        if (diffY > 50) this.nextSlide();
+                        else if (diffY < -50) this.prevSlide();
+                    }
+                }, { passive: true });
+            }
+
+            setupWheelNav() {
+                let wheelLock = false;
+                document.addEventListener('wheel', (e) => {
+                    if (wheelLock) return;
+                    wheelLock = true;
+                    setTimeout(() => wheelLock = false, 800);
+
+                    if (e.deltaY > 0) this.nextSlide();
+                    else if (e.deltaY < 0) this.prevSlide();
+                }, { passive: true });
+            }
+
+            generateStarfields() {
+                const starfieldIds = ['starfield1', 'starfield2', 'starfield23', 'starfield25'];
+                const colors = ['cyan', 'pink', 'yellow'];
+
+                starfieldIds.forEach(id => {
+                    const container = document.getElementById(id);
+                    if (!container) return;
+
+                    for (let i = 0; i < 20; i++) {
+                        const star = document.createElement('div');
+                        star.className = `star ${colors[i % 3]}`;
+                        star.style.left = `${Math.random() * 100}%`;
+                        star.style.top = `${Math.random() * 100}%`;
+                        star.style.animationDelay = `${Math.random() * 3}s`;
+                        container.appendChild(star);
+                    }
+                });
+            }
+
+            showSlide(index) {
+                this.currentSlide = Math.max(0, Math.min(index, this.totalSlides - 1));
+
+                this.slides.forEach((slide, i) => {
+                    const isActive = i === this.currentSlide;
+                    slide.classList.toggle('active', isActive);
+                    slide.classList.toggle('visible', isActive);
+                });
+
+                // Update counter
+                const current = String(this.currentSlide + 1).padStart(2, '0');
+                const total = String(this.totalSlides).padStart(2, '0');
+                this.counter.textContent = `${current} / ${total}`;
+            }
+
+            nextSlide() {
+                this.showSlide(this.currentSlide + 1);
+            }
+
+            prevSlide() {
+                this.showSlide(this.currentSlide - 1);
+            }
+        }
+
+        /* ===========================================
+           INLINE EDITOR
+           =========================================== */
+        class InlineEditor {
+            constructor() {
+                this.isActive = false;
+                this.editableSelectors = [
+                    '.headline', '.headline-hero', '.headline-sub', '.subhead',
+                    '.body-text', '.label-pill', '.code-block',
+                    '.lang-name', '.lang-desc', '.recap-text',
+                    '.editor-action', '.title', '.subtitle',
+                    '.checklist li', '.session-label'
+                ];
+                this.setupToggle();
+            }
+
+            setupToggle() {
+                const hotzone = document.getElementById('editHotzone');
+                const toggle = document.getElementById('editToggle');
+                let hideTimeout = null;
+
+                // Hotzone hover
+                hotzone.addEventListener('mouseenter', () => {
+                    clearTimeout(hideTimeout);
+                    toggle.classList.add('show');
+                });
+                hotzone.addEventListener('mouseleave', () => {
+                    hideTimeout = setTimeout(() => {
+                        if (!this.isActive) toggle.classList.remove('show');
+                    }, 400);
+                });
+
+                // Toggle button hover
+                toggle.addEventListener('mouseenter', () => {
+                    clearTimeout(hideTimeout);
+                });
+                toggle.addEventListener('mouseleave', () => {
+                    hideTimeout = setTimeout(() => {
+                        if (!this.isActive) toggle.classList.remove('show');
+                    }, 400);
+                });
+
+                // Click handlers
+                toggle.addEventListener('click', () => this.toggleEditMode());
+                hotzone.addEventListener('click', () => this.toggleEditMode());
+
+                // Keyboard shortcut
+                document.addEventListener('keydown', (e) => {
+                    if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) {
+                        this.toggleEditMode();
+                    }
+                    // Save with Ctrl+S
+                    if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        this.saveToLocalStorage();
+                    }
+                });
+            }
+
+            toggleEditMode() {
+                this.isActive = !this.isActive;
+                const toggle = document.getElementById('editToggle');
+                toggle.classList.toggle('active', this.isActive);
+
+                const editables = document.querySelectorAll(this.editableSelectors.join(', '));
+                editables.forEach(el => {
+                    el.contentEditable = this.isActive;
+                });
+            }
+
+            saveToLocalStorage() {
+                const content = document.getElementById('deckStage').innerHTML;
+                localStorage.setItem('presentation-backup', content);
+                console.log('Presentation saved to localStorage');
+            }
+        }
+
+        // Initialize
+        const presentation = new SlidePresentation();
+        const editor = new InlineEditor();
+    </script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session 1 Demo — Make the Page React</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    h1, h2, h3 {
+      color: #00d9ff;
+    }
+    section {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border-left: 4px solid #00d9ff;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    input {
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 2px solid #00d9ff;
+      border-radius: 6px;
+      background: #0f0f23;
+      color: #fff;
+      margin-bottom: 1rem;
+      width: 200px;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      background: #00d9ff;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    button:hover {
+      background: #00b8d9;
+    }
+    .output {
+      background: #0f0f23;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+      min-height: 2rem;
+      border: 1px dashed #444;
+    }
+    .slide-ref {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Session 1 Demo</h1>
+  <p>Open DevTools (F12 or right-click → Inspect) and look at the Console tab!</p>
+
+  <!-- ========== SLIDES 5-7: Variables & Logging ========== -->
+  <section>
+    <div class="slide-ref">Slides 5-7: Variables & console.log</div>
+    <h2>Variables & Logging</h2>
+    <p>Check the console — values are already logged when the page loads.</p>
+    <button id="logAgainBtn">Log Variables Again</button>
+  </section>
+
+  <!-- ========== SLIDES 9-11: querySelector & Events ========== -->
+  <section>
+    <div class="slide-ref">Slides 9-11: querySelector & addEventListener</div>
+    <h2>Click Events</h2>
+    <button id="demoBtn">Click Me!</button>
+    <button id="secondBtn">Click Me Too!</button>
+    <div class="output" id="clickOutput">Click a button to see what happens...</div>
+  </section>
+
+  <!-- ========== SLIDES 12-14: .value & .innerHTML ========== -->
+  <section>
+    <div class="slide-ref">Slides 12-14: .value & .innerHTML</div>
+    <h2>Read Input → Show on Page</h2>
+    <label for="nameInput">Type your name:</label>
+    <input type="text" id="nameInput" placeholder="Your name">
+    <button id="greetBtn">Greet Me</button>
+    <div class="output" id="greetOutput"></div>
+  </section>
+
+  <!-- ========== SLIDES 15-18: Strings & Template Literals ========== -->
+  <section>
+    <div class="slide-ref">Slides 15-18: Strings & Template Literals</div>
+    <h2>Build a Sentence</h2>
+    <label for="adjective">Adjective:</label>
+    <input type="text" id="adjective" placeholder="silly">
+    <label for="animal">Animal:</label>
+    <input type="text" id="animal" placeholder="penguin">
+    <button id="sentenceBtn">Build Sentence</button>
+    <div class="output" id="sentenceOutput"></div>
+  </section>
+
+  <!-- ========== SLIDES 19-22: Numbers & the Gotcha ========== -->
+  <section>
+    <div class="slide-ref">Slides 19-22: Strings vs Numbers</div>
+    <h2>The Number Gotcha</h2>
+    <label for="num1">First number:</label>
+    <input type="text" id="num1" placeholder="7">
+    <label for="num2">Second number:</label>
+    <input type="text" id="num2" placeholder="7">
+    <button id="buggyAddBtn">Add (Buggy)</button>
+    <button id="fixedAddBtn">Add (Fixed)</button>
+    <div class="output" id="mathOutput"></div>
+  </section>
+
+  <!-- ========================================
+       THE SCRIPT — Organized by Slide Number
+       ======================================== -->
+  <script>
+    // =====================================================
+    // SLIDE 5-6: Variables & console.log
+    // "A variable is a labeled box for a value."
+    // =====================================================
+
+    let score = 5;
+    let playerName = "Sam";
+    let greeting = "Hello, world!";
+
+    // These log automatically when the page loads — check the console!
+    console.log("=== SLIDE 5-6: Variables ===");
+    console.log("score:", score);
+    console.log("playerName:", playerName);
+    console.log("greeting:", greeting);
+
+    // Button to log them again
+    let logAgainBtn = document.querySelector("#logAgainBtn");
+    logAgainBtn.addEventListener("click", () => {
+      console.log("--- Logging variables again ---");
+      console.log("score:", score);
+      console.log("playerName:", playerName);
+      console.log("greeting:", greeting);
+    });
+
+
+    // =====================================================
+    // SLIDE 9-11: querySelector & addEventListener
+    // "When X happens, run this code."
+    // =====================================================
+
+    console.log("=== SLIDE 9-11: Events ===");
+
+    // Grab elements using querySelector — same selectors as CSS!
+    let demoBtn = document.querySelector("#demoBtn");
+    let secondBtn = document.querySelector("#secondBtn");
+    let clickOutput = document.querySelector("#clickOutput");
+
+    // Log to prove we grabbed them
+    console.log("demoBtn element:", demoBtn);
+    console.log("secondBtn element:", secondBtn);
+
+    // Add click listeners
+    demoBtn.addEventListener("click", () => {
+      console.log("demoBtn was clicked!");
+      clickOutput.innerHTML = "You clicked the first button!";
+    });
+
+    secondBtn.addEventListener("click", () => {
+      console.log("secondBtn was clicked!");
+      clickOutput.innerHTML = "You clicked the second button!";
+    });
+
+
+    // =====================================================
+    // SLIDE 12-14: .value and .innerHTML
+    // "Read from input, write to the page."
+    // =====================================================
+
+    console.log("=== SLIDE 12-14: Input & Output ===");
+
+    let nameInput = document.querySelector("#nameInput");
+    let greetBtn = document.querySelector("#greetBtn");
+    let greetOutput = document.querySelector("#greetOutput");
+
+    greetBtn.addEventListener("click", () => {
+      // .value reads what's typed in the input
+      let typed = nameInput.value;
+      console.log("User typed:", typed);
+
+      // .innerHTML writes to an element on the page
+      greetOutput.innerHTML = "Hello, " + typed + "!";
+    });
+
+
+    // =====================================================
+    // SLIDE 15-18: Strings & Template Literals
+    // "Backticks + ${} to drop variables in."
+    // =====================================================
+
+    console.log("=== SLIDE 15-18: Template Literals ===");
+
+    let adjectiveInput = document.querySelector("#adjective");
+    let animalInput = document.querySelector("#animal");
+    let sentenceBtn = document.querySelector("#sentenceBtn");
+    let sentenceOutput = document.querySelector("#sentenceOutput");
+
+    sentenceBtn.addEventListener("click", () => {
+      let adj = adjectiveInput.value;
+      let animal = animalInput.value;
+
+      // The OLD way (concatenation with +)
+      let oldWay = "I saw a " + adj + " " + animal + " at the zoo.";
+      console.log("Old way (with +):", oldWay);
+
+      // The NEW way (template literals with backticks)
+      let newWay = `I saw a ${adj} ${animal} at the zoo.`;
+      console.log("New way (template literal):", newWay);
+
+      // Show the template literal version
+      sentenceOutput.innerHTML = newWay;
+    });
+
+
+    // =====================================================
+    // SLIDE 19-22: Strings vs Numbers — The Gotcha
+    // "Inputs always give you text — even digits."
+    // =====================================================
+
+    console.log("=== SLIDE 19-22: Number Gotcha ===");
+
+    let num1Input = document.querySelector("#num1");
+    let num2Input = document.querySelector("#num2");
+    let buggyAddBtn = document.querySelector("#buggyAddBtn");
+    let fixedAddBtn = document.querySelector("#fixedAddBtn");
+    let mathOutput = document.querySelector("#mathOutput");
+
+    // THE BUGGY VERSION — strings get concatenated, not added!
+    buggyAddBtn.addEventListener("click", () => {
+      let a = num1Input.value;  // This is a STRING, not a number!
+      let b = num2Input.value;  // This is also a STRING!
+
+      console.log("--- BUGGY VERSION ---");
+      console.log("a:", a, "| type:", typeof a);
+      console.log("b:", b, "| type:", typeof b);
+
+      let result = a + b;  // String + String = concatenation!
+      console.log("a + b =", result, "(oops!)");
+
+      mathOutput.innerHTML = `${a} + ${b} = ${result} (That's not right!)`;
+    });
+
+    // THE FIXED VERSION — convert to numbers first!
+    fixedAddBtn.addEventListener("click", () => {
+      let a = Number(num1Input.value);  // Convert to number!
+      let b = Number(num2Input.value);  // Convert to number!
+
+      console.log("--- FIXED VERSION ---");
+      console.log("a:", a, "| type:", typeof a);
+      console.log("b:", b, "| type:", typeof b);
+
+      let result = a + b;  // Number + Number = math!
+      console.log("a + b =", result, "(correct!)");
+
+      mathOutput.innerHTML = `${a} + ${b} = ${result} ✓`;
+    });
+
+
+    // =====================================================
+    // FINAL MESSAGE
+    // =====================================================
+
+    console.log("===========================================");
+    console.log("All demo code loaded! Try the buttons above.");
+    console.log("===========================================");
+  </script>
+
+</body>
+</html>

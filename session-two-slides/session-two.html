@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Session 2 — Make the Page Think</title>
+
+    <!-- === FONTS: Tektur (display), Chakra Petch (body), Space Mono (HUD) === -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=Space+Mono:wght@400;700&family=Tektur:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES — 8-BIT ORBIT THEME
+           Retro-futuristic pixel-art presentation
+           =========================================== */
+        :root {
+            /* Colors */
+            --dark-void: #0A0E27;
+            --deep-navy: #0F1B3D;
+            --neon-cyan: #5EDCF4;
+            --neon-pink: #F0A6CA;
+            --neon-yellow: #F4D03F;
+            --soft-lavender: #E2D5F2;
+            --white: #FFFFFF;
+
+            /* Stage background */
+            --stage-bg: var(--dark-void);
+            --slide-bg: var(--dark-void);
+
+            /* Typography */
+            --font-display: 'Tektur', cursive;
+            --font-body: 'Chakra Petch', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+
+            /* Animation */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.6s;
+        }
+
+        /* ===========================================
+           BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* === VIEWPORT-BASE.CSS (MANDATORY) === */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--stage-bg, #000);
+            cursor: crosshair;
+        }
+
+        .deck-viewport {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: var(--stage-bg, #000);
+        }
+
+        .deck-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            transform-origin: 0 0;
+            background: var(--slide-bg, #fff);
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            display: block;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            background: var(--slide-bg, #fff);
+        }
+
+        .slide.active,
+        .slide.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        img, video, canvas, svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        @media print {
+            html, body {
+                width: 1920px;
+                height: auto;
+                overflow: visible;
+                background: #fff;
+            }
+            .deck-viewport {
+                position: static;
+                overflow: visible;
+                background: #fff;
+            }
+            .deck-stage {
+                position: static;
+                width: auto;
+                height: auto;
+                transform: none !important;
+                background: none;
+            }
+            .slide {
+                position: relative;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                width: 1920px;
+                height: 1080px;
+                break-after: page;
+                page-break-after: always;
+            }
+            .slide:last-child {
+                break-after: auto;
+                page-break-after: auto;
+            }
+            .deck-controls { display: none !important; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+        }
+
+        /* ===========================================
+           ATMOSPHERIC OVERLAYS — 8-BIT ORBIT SIGNATURE
+           Scanlines, grain, CRT vignette on every slide
+           =========================================== */
+
+        /* Grid background pattern */
+        .slide {
+            background-color: var(--dark-void);
+            background-image:
+                linear-gradient(rgba(94, 220, 244, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(94, 220, 244, 0.07) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Grain overlay */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 49;
+            opacity: 0.035;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        /* Scanlines overlay */
+        .slide::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                transparent 2px,
+                rgba(10, 14, 39, 0.04) 2px,
+                rgba(10, 14, 39, 0.04) 4px
+            );
+            mix-blend-mode: multiply;
+        }
+
+        /* CRT vignette glow */
+        .crt-glow {
+            position: absolute;
+            inset: 0;
+            z-index: 51;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(10, 14, 39, 0.25) 100%);
+        }
+
+        /* ===========================================
+           SLIDE CONTENT CONTAINER
+           =========================================== */
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            padding: 72px 96px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===========================================
+           TYPOGRAPHY — 8-BIT ORBIT SYSTEM
+           Tektur (display), Chakra Petch (body), Space Mono (HUD)
+           =========================================== */
+
+        /* Pixel hero — massive display with stacked shadow */
+        .pixel-hero {
+            font-family: var(--font-display);
+            font-size: 128px;
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: 0.04em;
+            color: var(--neon-cyan);
+            text-shadow: 4px 4px 0 var(--neon-yellow), 8px 8px 0 var(--deep-navy);
+        }
+
+        /* Display — section openers */
+        .display {
+            font-family: var(--font-display);
+            font-size: 64px;
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--neon-cyan);
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        /* Headline — primary section title */
+        .headline {
+            font-family: var(--font-display);
+            font-size: 56px;
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--neon-cyan);
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        /* Subhead — card titles */
+        .subhead {
+            font-family: var(--font-display);
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--neon-cyan);
+        }
+
+        /* Body text */
+        .body {
+            font-family: var(--font-body);
+            font-size: 28px;
+            font-weight: 400;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Hero tagline */
+        .hero-tagline {
+            font-family: var(--font-body);
+            font-size: 32px;
+            font-weight: 400;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Code snippets */
+        .code {
+            font-family: var(--font-mono);
+            font-size: 32px;
+            font-weight: 400;
+            line-height: 1.6;
+            color: var(--neon-yellow);
+            background: rgba(15, 27, 61, 0.6);
+            padding: 4px 12px;
+            display: inline-block;
+        }
+
+        .code-block {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 400;
+            line-height: 1.6;
+            color: var(--neon-yellow);
+            background: rgba(15, 27, 61, 0.8);
+            padding: 32px 40px;
+            border: 2px solid rgba(94, 220, 244, 0.3);
+            white-space: pre;
+            position: relative;
+        }
+
+        .code-block::before,
+        .code-block::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 4px solid var(--neon-cyan);
+        }
+
+        .code-block::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .code-block::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* ===========================================
+           LABEL PILL — Universal eyebrow component
+           =========================================== */
+        .label-pill {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            background: var(--deep-navy);
+            color: var(--neon-yellow);
+            padding: 8px 16px;
+        }
+
+        .label-pill.pink {
+            color: var(--neon-pink);
+        }
+
+        .label-pill.cyan {
+            color: var(--neon-cyan);
+        }
+
+        /* ===========================================
+           PIXEL BUTTON — CTA with stacked shadow
+           =========================================== */
+        .pixel-button {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: var(--neon-cyan);
+            color: var(--deep-navy);
+            padding: 20px 48px;
+            border: none;
+            cursor: pointer;
+            box-shadow:
+                4px 0 0 0 var(--deep-navy),
+                0 4px 0 0 var(--deep-navy),
+                4px 4px 0 0 var(--deep-navy),
+                8px 4px 0 0 var(--neon-yellow),
+                4px 8px 0 0 var(--neon-yellow),
+                8px 8px 0 0 var(--neon-yellow);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .pixel-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow:
+                2px 0 0 0 var(--deep-navy),
+                0 2px 0 0 var(--deep-navy),
+                2px 2px 0 0 var(--deep-navy),
+                4px 2px 0 0 var(--neon-yellow),
+                2px 4px 0 0 var(--neon-yellow),
+                4px 4px 0 0 var(--neon-yellow);
+        }
+
+        /* ===========================================
+           CORNER BRACKETS — Signature frame element
+           =========================================== */
+        .bracketed {
+            position: relative;
+            padding: 32px;
+        }
+
+        .bracketed::before,
+        .bracketed::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 4px solid var(--neon-cyan);
+        }
+
+        .bracketed::before {
+            top: 0;
+            left: 0;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .bracketed::after {
+            bottom: 0;
+            right: 0;
+            border-left: none;
+            border-top: none;
+        }
+
+        .bracketed.yellow::before,
+        .bracketed.yellow::after {
+            border-color: var(--neon-yellow);
+        }
+
+        .bracketed.pink::before,
+        .bracketed.pink::after {
+            border-color: var(--neon-pink);
+        }
+
+        /* ===========================================
+           STAT BLOCK — For metrics/numbers
+           =========================================== */
+        .stat-block {
+            background: rgba(94, 220, 244, 0.08);
+            border: 2px solid rgba(94, 220, 244, 0.2);
+            padding: 32px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .stat-block::before,
+        .stat-block::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 4px solid var(--neon-cyan);
+        }
+
+        .stat-block::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .stat-block::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .stat-number {
+            font-family: var(--font-display);
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1;
+            color: var(--neon-cyan);
+            text-shadow: 3px 3px 0 var(--deep-navy);
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--neon-pink);
+            margin-top: 12px;
+        }
+
+        /* ===========================================
+           FEATURE CARD — Frosted glass with brackets
+           =========================================== */
+        .feature-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            padding: 32px;
+            border: 2px solid rgba(94, 220, 244, 0.2);
+            position: relative;
+        }
+
+        .feature-card::before,
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 4px solid var(--deep-navy);
+        }
+
+        .feature-card::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .feature-card::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* ===========================================
+           LAYOUT UTILITIES
+           =========================================== */
+        .centered {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 100%;
+        }
+
+        .left-aligned {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: center;
+            height: 100%;
+        }
+
+        .three-column {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .four-column {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .gap-lg { gap: 48px; }
+        .gap-md { gap: 32px; }
+        .gap-sm { gap: 16px; }
+        .mt-lg { margin-top: 48px; }
+        .mt-md { margin-top: 32px; }
+        .mt-sm { margin-top: 16px; }
+        .mb-lg { margin-bottom: 48px; }
+        .mb-md { margin-bottom: 32px; }
+
+        /* ===========================================
+           BULLET LIST
+           =========================================== */
+        .bullet-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .bullet-list li {
+            font-family: var(--font-body);
+            font-size: 28px;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+            padding-left: 40px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .bullet-list li::before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: var(--neon-cyan);
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+
+        /* ===========================================
+           HANDS-ON SLIDE — Yellow accent variant
+           =========================================== */
+        .hands-on {
+            background-color: var(--deep-navy);
+            background-image:
+                linear-gradient(rgba(244, 208, 63, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(244, 208, 63, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .hands-on .headline {
+            color: var(--neon-yellow);
+        }
+
+        .hands-on .subhead {
+            color: var(--neon-yellow);
+        }
+
+        /* ===========================================
+           REVEAL ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal:nth-child(1) { transition-delay: 0.1s; }
+        .reveal:nth-child(2) { transition-delay: 0.2s; }
+        .reveal:nth-child(3) { transition-delay: 0.3s; }
+        .reveal:nth-child(4) { transition-delay: 0.4s; }
+        .reveal:nth-child(5) { transition-delay: 0.5s; }
+        .reveal:nth-child(6) { transition-delay: 0.6s; }
+
+        /* ===========================================
+           STARFIELD — Animated background particles
+           =========================================== */
+        .starfield {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* ===========================================
+           SLIDE COUNTER & NAV
+           =========================================== */
+        .slide-counter {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            letter-spacing: 0.15em;
+            color: var(--neon-cyan);
+            background: rgba(15, 27, 61, 0.8);
+            padding: 8px 20px;
+        }
+
+        .nav-hint {
+            position: fixed;
+            bottom: 32px;
+            right: 48px;
+            z-index: 1000;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            color: rgba(94, 220, 244, 0.5);
+            text-transform: uppercase;
+        }
+
+        /* ===========================================
+           NAV DOT RAIL
+           =========================================== */
+        .nav-dots {
+            position: fixed;
+            right: 32px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--neon-cyan);
+            background: transparent;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .nav-dot.active {
+            background: var(--neon-cyan);
+        }
+
+        /* ===========================================
+           EDIT MODE
+           =========================================== */
+        .edit-hotzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 80px;
+            height: 80px;
+            z-index: 10000;
+            cursor: pointer;
+        }
+
+        .edit-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            background: var(--deep-navy);
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-toggle.show,
+        .edit-toggle.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .edit-toggle.active {
+            background: var(--neon-cyan);
+            color: var(--deep-navy);
+        }
+
+        [contenteditable="true"] {
+            outline: 2px dashed var(--neon-yellow);
+            outline-offset: 4px;
+        }
+
+        .edit-save-hint {
+            position: fixed;
+            top: 20px;
+            left: 80px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--neon-yellow);
+            background: var(--deep-navy);
+            padding: 8px 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 10001;
+        }
+
+        .edit-save-hint.show {
+            opacity: 1;
+        }
+
+        /* ===========================================
+           SPECIAL SLIDE TYPES
+           =========================================== */
+
+        /* Title slide */
+        .title-slide .slide-content {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        /* Recap slide with tools grid */
+        .tools-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        .tool-tag {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            color: var(--neon-yellow);
+            background: rgba(15, 27, 61, 0.8);
+            padding: 12px 24px;
+            border: 2px solid rgba(244, 208, 63, 0.3);
+        }
+
+        /* Comparison operators */
+        .operator-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .operator-item {
+            text-align: center;
+            padding: 24px;
+            background: rgba(15, 27, 61, 0.6);
+            border: 2px solid rgba(94, 220, 244, 0.2);
+        }
+
+        .operator {
+            font-family: var(--font-mono);
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--neon-cyan);
+        }
+
+        .operator-label {
+            font-family: var(--font-body);
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 8px;
+        }
+
+        /* Boolean values */
+        .bool-true {
+            color: var(--neon-cyan);
+        }
+
+        .bool-false {
+            color: var(--neon-pink);
+        }
+
+        /* Stretch goals */
+        .stretch-item {
+            font-family: var(--font-body);
+            font-size: 24px;
+            color: var(--neon-pink);
+            padding: 12px 24px;
+            background: rgba(240, 166, 202, 0.1);
+            border: 2px solid rgba(240, 166, 202, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="deck-viewport">
+        <main class="deck-stage" id="deckStage">
+
+            <!-- ========================================
+                 SLIDE 1: TITLE
+                 ======================================== -->
+            <section class="slide title-slide active">
+                <div class="starfield" id="starfield1"></div>
+                <div class="crt-glow"></div>
+                <div class="slide-content">
+                    <span class="label-pill reveal">Session 2</span>
+                    <h1 class="pixel-hero reveal mt-md">JavaScript</h1>
+                    <p class="hero-tagline reveal mt-md">Make the Page Think</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 2: WHAT WE'RE BUILDING TODAY
+                 ======================================== -->
+            <section class="slide">
+                <div class="starfield"></div>
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill reveal">Today's Build</span>
+                    <h2 class="display reveal mt-md">Number Guessing Game</h2>
+                    <p class="body reveal mt-md" style="max-width: 900px;">The computer picks a secret number, you guess, and it tells you higher or lower until you nail it.</p>
+                    <div class="pixel-button reveal mt-lg">→ Live Demo</div>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 3: RECAP — THE TOOLS WE KEEP
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill reveal">Recap</span>
+                    <h2 class="headline reveal mt-md">The Tools We Keep</h2>
+                    <div class="tools-grid reveal mt-lg">
+                        <span class="tool-tag">querySelector</span>
+                        <span class="tool-tag">addEventListener</span>
+                        <span class="tool-tag">.value</span>
+                        <span class="tool-tag">.innerHTML</span>
+                        <span class="tool-tag">Number()</span>
+                    </div>
+                    <p class="body reveal mt-lg" style="max-width: 800px;">Everything from last session still applies. Today we add the missing piece — <strong style="color: var(--neon-cyan);">decisions</strong>.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 4: BOOLEANS
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">New Concept</span>
+                    <h2 class="headline reveal mt-md">Booleans: true / false</h2>
+                    <p class="body reveal mt-md">A boolean is one of two values:</p>
+                    <div class="reveal mt-md" style="display: flex; gap: 48px;">
+                        <div class="stat-block" style="padding: 32px 64px;">
+                            <span class="stat-number bool-true">true</span>
+                        </div>
+                        <div class="stat-block" style="padding: 32px 64px;">
+                            <span class="stat-number bool-false">false</span>
+                        </div>
+                    </div>
+                    <div class="code-block reveal mt-lg">let isWinner = true;</div>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">It's how code answers a question — yes or no.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 5: COMPARISON OPERATORS
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Operators</span>
+                    <h2 class="headline reveal mt-md">Comparison Operators</h2>
+                    <div class="operator-grid reveal mt-lg">
+                        <div class="operator-item">
+                            <span class="operator">&lt;</span>
+                            <p class="operator-label">less than</p>
+                        </div>
+                        <div class="operator-item">
+                            <span class="operator">&gt;</span>
+                            <p class="operator-label">greater than</p>
+                        </div>
+                        <div class="operator-item">
+                            <span class="operator">&lt;=</span>
+                            <p class="operator-label">less or equal</p>
+                        </div>
+                        <div class="operator-item">
+                            <span class="operator">&gt;=</span>
+                            <p class="operator-label">greater or equal</p>
+                        </div>
+                        <div class="operator-item">
+                            <span class="operator">===</span>
+                            <p class="operator-label">equal</p>
+                        </div>
+                        <div class="operator-item">
+                            <span class="operator">!==</span>
+                            <p class="operator-label">not equal</p>
+                        </div>
+                    </div>
+                    <div class="code-block reveal mt-lg">5 > 3   <span style="color: var(--neon-pink);">→</span>   <span class="bool-true">true</span></div>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 6: TO THE EDITOR — PREDICT
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">Predict the Comparison</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">Guess the result — <span class="bool-true">true</span> or <span class="bool-false">false</span> — then log it to check.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 7: IF / ELSE
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Decisions</span>
+                    <h2 class="headline reveal mt-md">Making Decisions: if / else</h2>
+                    <div class="code-block reveal mt-lg">if (score > 10) {
+  <span style="color: var(--neon-pink);">// do this</span>
+} else {
+  <span style="color: var(--neon-pink);">// otherwise this</span>
+}</div>
+                    <p class="body reveal mt-lg"><em>If this is true, run the first block; otherwise, run the else block.</em></p>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">The thing in parentheses is a question that comes back true or false.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 8: ALERT
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Quick Feedback</span>
+                    <h2 class="headline reveal mt-md">alert()</h2>
+                    <div class="code-block reveal mt-lg">alert("You did it!");</div>
+                    <p class="body reveal mt-lg">Pops a message box — handy for quick feedback.</p>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">For the real game we'll write to the page instead.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 9: TO THE EDITOR — IF/ELSE
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">if / else</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">React differently based on a number. One condition, two outcomes.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 10: ELSE IF
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">More Paths</span>
+                    <h2 class="headline reveal mt-md">if / else if / else</h2>
+                    <div class="code-block reveal mt-lg">if (score >= 90) {
+  <span style="color: var(--neon-pink);">// A</span>
+} else if (score >= 80) {
+  <span style="color: var(--neon-pink);">// B</span>
+} else {
+  <span style="color: var(--neon-pink);">// C or below</span>
+}</div>
+                    <p class="body reveal mt-lg">Checks in order, top to bottom. <strong style="color: var(--neon-cyan);">First true one wins.</strong></p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 11: THE GOTCHA — ORDER MATTERS
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill pink reveal">⚠ Gotcha</span>
+                    <h2 class="headline reveal mt-md" style="color: var(--neon-pink);">Order Matters</h2>
+                    <div class="two-column reveal mt-lg" style="height: auto;">
+                        <div>
+                            <p class="subhead" style="color: var(--neon-pink);">Bug: everyone gets an A?!</p>
+                            <div class="code-block mt-md" style="font-size: 24px;">if (score >= 60) ...
+else if (score >= 90) ...</div>
+                        </div>
+                        <div>
+                            <p class="subhead" style="color: var(--neon-cyan);">Fix: check highest first</p>
+                            <div class="code-block mt-md" style="font-size: 24px;">if (score >= 90) ...
+else if (score >= 60) ...</div>
+                        </div>
+                    </div>
+                    <p class="body reveal mt-lg">If we check <code class="code">>= 60</code> first, a 95 matches immediately and never reaches the A check.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 12: TO THE EDITOR — RANGES
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">Ranges Done Right</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">Build a correctly ordered range check. Test the boundaries — the edges are where bugs hide.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 13: && AND ||
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Combine</span>
+                    <h2 class="headline reveal mt-md">Combine Conditions: && and ||</h2>
+                    <div class="two-column reveal mt-lg" style="height: auto;">
+                        <div class="stat-block">
+                            <span class="stat-number">&&</span>
+                            <p class="stat-label">AND — all must be true</p>
+                        </div>
+                        <div class="stat-block">
+                            <span class="stat-number">||</span>
+                            <p class="stat-label">OR — at least one true</p>
+                        </div>
+                    </div>
+                    <div class="code-block reveal mt-lg">age >= 13 && age <= 19   <span style="color: var(--neon-pink);">// is a teenager?</span></div>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 14: PARENTHESES
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Clarity</span>
+                    <h2 class="headline reveal mt-md">Group with Parentheses</h2>
+                    <div class="code-block reveal mt-lg">(a && b) || c</div>
+                    <p class="body reveal mt-lg">Parentheses make the grouping clear — for you <em>and</em> the computer.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 15: TO THE EDITOR — COMPOUND
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">Compound Condition</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">Write a condition with && or ||. This is exactly how we'll validate guesses in the game.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 16: MATH.RANDOM()
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Randomness</span>
+                    <h2 class="headline reveal mt-md">Math.random()</h2>
+                    <div class="code-block reveal mt-lg">Math.random()   <span style="color: var(--neon-pink);">→</span>   0.4817...</div>
+                    <p class="body reveal mt-lg">Returns a random decimal from <code class="code">0</code> up to (but not including) <code class="code">1</code>.</p>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">Useful, but we want a whole number.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 17: MATH.FLOOR()
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">Whole Numbers</span>
+                    <h2 class="headline reveal mt-md">Math.floor()</h2>
+                    <div class="code-block reveal mt-lg">Math.floor(4.9)   <span style="color: var(--neon-pink);">→</span>   4   <span style="color: rgba(255,255,255,0.5);">// rounds down</span></div>
+                    <div class="code-block reveal mt-md">Math.floor(Math.random() * 100) + 1   <span style="color: var(--neon-pink);">→</span>   1–100</div>
+                    <p class="body reveal mt-lg">Multiply the random decimal by 100, floor it, add 1 — that's our secret number.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 18: TO THE EDITOR — RANDOM
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">Random Number</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">Generate a random whole number and log it a few times. Now we have everything the game needs.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 19: BUILD THE GAME
+                 ======================================== -->
+            <section class="slide">
+                <div class="starfield"></div>
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill cyan reveal">Project</span>
+                    <h2 class="display reveal mt-md">Build the Guessing Game</h2>
+                    <div class="two-column reveal mt-lg" style="height: auto; align-items: start;">
+                        <div>
+                            <p class="subhead" style="color: var(--neon-cyan);">We Do</p>
+                            <ul class="bullet-list mt-md">
+                                <li>Pick the secret number</li>
+                                <li>Read & convert the guess</li>
+                                <li>The win case</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="subhead" style="color: var(--neon-pink);">You Do</p>
+                            <ul class="bullet-list mt-md">
+                                <li>Too high / too low feedback</li>
+                                <li>Validate range with &&</li>
+                                <li>Count guesses</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="reveal mt-lg" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <span class="stretch-item">Stretch: history list</span>
+                        <span class="stretch-item">Stretch: "very close" hint</span>
+                        <span class="stretch-item">Stretch: New Game reset</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 20: CLASSLIST.TOGGLE
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill reveal">DOM Magic</span>
+                    <h2 class="headline reveal mt-md">classList.toggle()</h2>
+                    <div class="code-block reveal mt-lg">panel.classList.toggle("hidden")</div>
+                    <p class="body reveal mt-lg">Show or hide by flipping a CSS class on or off.</p>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">Hide a "You win!" panel with a class, then toggle it off when they guess right. Instant reveal.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 21: CREATE ELEMENT (STRETCH)
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content left-aligned">
+                    <span class="label-pill pink reveal">Stretch</span>
+                    <h2 class="headline reveal mt-md">Build Elements on the Fly</h2>
+                    <div class="code-block reveal mt-lg">document.createElement("li")
+list.appendChild(item)</div>
+                    <p class="body reveal mt-lg">Make new elements and add them to the page.</p>
+                    <p class="body reveal mt-md" style="color: rgba(255,255,255,0.6);">Want to show every past guess? This is how.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 22: TO THE EDITOR — REVEAL
+                 ======================================== -->
+            <section class="slide hands-on">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill pink reveal">Your Turn</span>
+                    <h2 class="headline reveal mt-md">→ To The Editor</h2>
+                    <p class="subhead reveal mt-md" style="color: var(--white);">Reveal + History</p>
+                    <p class="body reveal mt-md" style="max-width: 700px;">Reveal the win panel so finishing feels good.<br>Stretch: build the guess history list.</p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 23: RECAP
+                 ======================================== -->
+            <section class="slide">
+                <div class="crt-glow"></div>
+                <div class="slide-content centered">
+                    <span class="label-pill reveal">Recap</span>
+                    <h2 class="display reveal mt-md">What You Can Now Do</h2>
+                    <div class="three-column reveal mt-lg" style="gap: 32px;">
+                        <div class="feature-card">
+                            <p class="subhead" style="font-size: 24px;">Ask Questions</p>
+                            <p class="body mt-sm" style="font-size: 22px; color: rgba(255,255,255,0.6);">true/false with booleans and comparisons</p>
+                        </div>
+                        <div class="feature-card">
+                            <p class="subhead" style="font-size: 24px;">Make Decisions</p>
+                            <p class="body mt-sm" style="font-size: 22px; color: rgba(255,255,255,0.6);">if / else / else if, && and ||</p>
+                        </div>
+                        <div class="feature-card">
+                            <p class="subhead" style="font-size: 24px;">Build Dynamically</p>
+                            <p class="body mt-sm" style="font-size: 22px; color: rgba(255,255,255,0.6);">Random numbers, toggle classes, create elements</p>
+                        </div>
+                    </div>
+                    <p class="body reveal mt-lg" style="max-width: 800px;">You can now make a page that reads input, makes decisions, and changes itself. <strong style="color: var(--neon-cyan);">That's a real program.</strong></p>
+                </div>
+            </section>
+
+            <!-- ========================================
+                 SLIDE 24: WRAP UP
+                 ======================================== -->
+            <section class="slide title-slide">
+                <div class="starfield" id="starfield2"></div>
+                <div class="crt-glow"></div>
+                <div class="slide-content">
+                    <span class="label-pill reveal">Session Complete</span>
+                    <h1 class="pixel-hero reveal mt-md">You Built a Game</h1>
+                    <p class="hero-tagline reveal mt-md">Two sessions ago you had a static page.<br>Now you've shipped an interactive game.</p>
+                    <p class="reveal mt-lg" style="color: var(--neon-yellow); font-family: var(--font-display); font-size: 48px; font-weight: 700;">Nice work.</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Slide Counter -->
+    <div class="slide-counter" id="slideCounter">01 / 24</div>
+
+    <!-- Nav Hint -->
+    <div class="nav-hint">Use keys ↑ ↓</div>
+
+    <!-- Nav Dots -->
+    <nav class="nav-dots" id="navDots"></nav>
+
+    <!-- Edit Mode -->
+    <div class="edit-hotzone" id="editHotzone"></div>
+    <button class="edit-toggle" id="editToggle" title="Edit mode (E)">✏️</button>
+    <div class="edit-save-hint" id="editSaveHint">Ctrl+S to save</div>
+
+    <script>
+        /* ===========================================
+           SLIDE PRESENTATION CONTROLLER
+           8-Bit Orbit — Fixed 1920×1080 stage
+           =========================================== */
+        class SlidePresentation {
+            constructor() {
+                this.slides = document.querySelectorAll('.slide');
+                this.currentSlide = 0;
+                this.stage = document.getElementById('deckStage');
+                this.counter = document.getElementById('slideCounter');
+                this.navDots = document.getElementById('navDots');
+                this.isTransitioning = false;
+
+                this.setupStageScale();
+                this.setupNavDots();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupWheelNav();
+                this.createStarfields();
+                this.showSlide(0);
+            }
+
+            /* Scale the 1920×1080 stage to fit viewport */
+            setupStageScale() {
+                const scale = () => {
+                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    const x = (window.innerWidth - 1920 * factor) / 2;
+                    const y = (window.innerHeight - 1080 * factor) / 2;
+                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+                };
+                scale();
+                window.addEventListener('resize', scale);
+            }
+
+            /* Create nav dots */
+            setupNavDots() {
+                this.slides.forEach((_, i) => {
+                    const dot = document.createElement('button');
+                    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                    dot.addEventListener('click', () => this.showSlide(i));
+                    this.navDots.appendChild(dot);
+                });
+            }
+
+            /* Keyboard navigation */
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.getAttribute('contenteditable')) return;
+
+                    switch(e.key) {
+                        case 'ArrowDown':
+                        case 'ArrowRight':
+                        case ' ':
+                        case 'PageDown':
+                            e.preventDefault();
+                            this.next();
+                            break;
+                        case 'ArrowUp':
+                        case 'ArrowLeft':
+                        case 'PageUp':
+                            e.preventDefault();
+                            this.prev();
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.showSlide(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.showSlide(this.slides.length - 1);
+                            break;
+                    }
+                });
+            }
+
+            /* Touch/swipe navigation */
+            setupTouchNav() {
+                let startY = 0;
+                this.stage.addEventListener('touchstart', (e) => {
+                    startY = e.touches[0].clientY;
+                }, { passive: true });
+
+                this.stage.addEventListener('touchend', (e) => {
+                    const diff = startY - e.changedTouches[0].clientY;
+                    if (Math.abs(diff) > 50) {
+                        diff > 0 ? this.next() : this.prev();
+                    }
+                }, { passive: true });
+            }
+
+            /* Mouse wheel navigation with debounce */
+            setupWheelNav() {
+                let lastWheel = 0;
+                document.addEventListener('wheel', (e) => {
+                    const now = Date.now();
+                    if (now - lastWheel < 800) return;
+                    lastWheel = now;
+
+                    if (e.deltaY > 0) {
+                        this.next();
+                    } else if (e.deltaY < 0) {
+                        this.prev();
+                    }
+                }, { passive: true });
+            }
+
+            /* Create animated starfields */
+            createStarfields() {
+                document.querySelectorAll('.starfield').forEach(container => {
+                    const colors = ['#5EDCF4', '#F4D03F', '#F0A6CA'];
+                    for (let i = 0; i < 30; i++) {
+                        const star = document.createElement('div');
+                        star.className = 'star';
+                        star.style.left = Math.random() * 100 + '%';
+                        star.style.top = Math.random() * 100 + '%';
+                        star.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                        star.style.animationDelay = Math.random() * 3 + 's';
+                        container.appendChild(star);
+                    }
+                });
+            }
+
+            next() {
+                if (this.currentSlide < this.slides.length - 1) {
+                    this.showSlide(this.currentSlide + 1);
+                }
+            }
+
+            prev() {
+                if (this.currentSlide > 0) {
+                    this.showSlide(this.currentSlide - 1);
+                }
+            }
+
+            showSlide(index) {
+                if (this.isTransitioning) return;
+                this.isTransitioning = true;
+                setTimeout(() => this.isTransitioning = false, 600);
+
+                this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+
+                this.slides.forEach((slide, i) => {
+                    slide.classList.toggle('active', i === this.currentSlide);
+                    slide.classList.toggle('visible', i === this.currentSlide);
+                });
+
+                // Update counter
+                const num = String(this.currentSlide + 1).padStart(2, '0');
+                const total = String(this.slides.length).padStart(2, '0');
+                this.counter.textContent = `${num} / ${total}`;
+
+                // Update nav dots
+                document.querySelectorAll('.nav-dot').forEach((dot, i) => {
+                    dot.classList.toggle('active', i === this.currentSlide);
+                });
+            }
+        }
+
+        /* ===========================================
+           INLINE EDITOR
+           =========================================== */
+        class InlineEditor {
+            constructor() {
+                this.isActive = false;
+                this.toggle = document.getElementById('editToggle');
+                this.hotzone = document.getElementById('editHotzone');
+                this.saveHint = document.getElementById('editSaveHint');
+                this.hideTimeout = null;
+
+                this.setupHotzone();
+                this.setupKeyboard();
+            }
+
+            setupHotzone() {
+                // Hover to show button
+                this.hotzone.addEventListener('mouseenter', () => {
+                    clearTimeout(this.hideTimeout);
+                    this.toggle.classList.add('show');
+                });
+
+                this.hotzone.addEventListener('mouseleave', () => {
+                    this.hideTimeout = setTimeout(() => {
+                        if (!this.isActive) this.toggle.classList.remove('show');
+                    }, 400);
+                });
+
+                this.toggle.addEventListener('mouseenter', () => {
+                    clearTimeout(this.hideTimeout);
+                });
+
+                this.toggle.addEventListener('mouseleave', () => {
+                    this.hideTimeout = setTimeout(() => {
+                        if (!this.isActive) this.toggle.classList.remove('show');
+                    }, 400);
+                });
+
+                // Click handlers
+                this.toggle.addEventListener('click', () => this.toggleEditMode());
+                this.hotzone.addEventListener('click', () => this.toggleEditMode());
+            }
+
+            setupKeyboard() {
+                document.addEventListener('keydown', (e) => {
+                    // E key to toggle edit mode
+                    if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) {
+                        this.toggleEditMode();
+                    }
+
+                    // Ctrl+S to save
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.save();
+                    }
+                });
+            }
+
+            toggleEditMode() {
+                this.isActive = !this.isActive;
+                this.toggle.classList.toggle('active', this.isActive);
+                this.saveHint.classList.toggle('show', this.isActive);
+
+                // Make text elements editable
+                const editables = document.querySelectorAll('.pixel-hero, .display, .headline, .subhead, .body, .hero-tagline, .code-block');
+                editables.forEach(el => {
+                    el.contentEditable = this.isActive;
+                });
+
+                if (this.isActive) {
+                    this.toggle.classList.add('show');
+                }
+            }
+
+            save() {
+                // Save to localStorage
+                const content = document.documentElement.outerHTML;
+                localStorage.setItem('presentation-backup', content);
+
+                // Visual feedback
+                this.saveHint.textContent = 'Saved!';
+                setTimeout(() => {
+                    this.saveHint.textContent = 'Ctrl+S to save';
+                }, 1500);
+            }
+        }
+
+        /* Initialize */
+        const presentation = new SlidePresentation();
+        const editor = new InlineEditor();
+    </script>
+</body>
+</html>
